@@ -1,4 +1,4 @@
-package com.vex.queryer;
+package com.vex.queryer.model;
 
 /**
  * 查询操作符枚举 — 比较/字符串/集合/空值四类;前端契约值 = 枚举名。

@@ -6,15 +6,17 @@
 
 ```
 vex-queryer/                      # 父模块
-└── vex-queryer-jpa/              # JPA 查询执行器
+├── vex-queryer-model/            # 查询模型：predicate/order/page 三件套 POJO（不依赖 JPA）
+│   └── src/main/java/com/vex/queryer/model/
+│       ├── QueriesCondition.java    # 单个比较条件
+│       ├── QueriesCriteria.java     # 条件项（叶子/嵌套）
+│       ├── QueriesOperatorEnum.java # 操作符枚举
+│       ├── QueriesOrder.java        # 排序条件
+│       ├── QueriesPage.java         # 分页参数
+│       ├── QueriesPageRequest.java  # 统一查询请求体
+│       └── QueriesPredicate.java    # 条件组合
+└── vex-queryer-jpa/              # JPA 查询执行器（依赖 model）
     └── src/main/java/com/vex/queryer/
-        ├── QueriesCondition.java    # 单个比较条件
-        ├── QueriesCriteria.java     # 条件项（叶子/嵌套）
-        ├── QueriesOperatorEnum.java # 操作符枚举
-        ├── QueriesOrder.java        # 排序条件
-        ├── QueriesPage.java         # 分页参数
-        ├── QueriesPageRequest.java  # 统一查询请求体
-        ├── QueriesPredicate.java    # 条件组合
         └── JpaQueriesExecutor.java  # JPA 执行器
 ```
 

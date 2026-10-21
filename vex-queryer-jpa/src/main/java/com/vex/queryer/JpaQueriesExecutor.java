@@ -1,5 +1,12 @@
 package com.vex.queryer;
 
+import com.vex.queryer.model.QueriesCondition;
+import com.vex.queryer.model.QueriesCriteria;
+import com.vex.queryer.model.QueriesOperatorEnum;
+import com.vex.queryer.model.QueriesOrder;
+import com.vex.queryer.model.QueriesPage;
+import com.vex.queryer.model.QueriesPageRequest;
+import com.vex.queryer.model.QueriesPredicate;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
 import jakarta.persistence.criteria.*;

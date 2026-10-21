@@ -1,4 +1,4 @@
-package com.vex.queryer;
+package com.vex.queryer.model;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
 import lombok.AllArgsConstructor;

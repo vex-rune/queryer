@@ -1,4 +1,4 @@
-package com.vex.queryer;
+package com.vex.queryer.model;
 
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
