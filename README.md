@@ -5,26 +5,54 @@
 ## 模块结构
 
 ```
-src/main/java/com/xinli/queries/
-├── QueriesCondition.java    # 单个比较条件
-├── QueriesCriteria.java     # 条件项（叶子/嵌套）
-├── QueriesOperatorEnum.java # 操作符枚举
-├── QueriesOrder.java        # 排序条件
-├── QueriesPage.java         # 分页参数
-├── QueriesPageRequest.java  # 统一查询请求体
-├── QueriesPredicate.java    # 条件组合
-└── jpa/
-    └── JpaQueriesExecutor.java  # JPA 执行器
+vex-queryer/                      # 父模块（聚合 pom，不发布 jar）
+└── vex-queryer-jpa/              # JPA 查询执行器
+    └── src/main/java/com/vex/queryer/
+        ├── QueriesCondition.java    # 单个比较条件
+        ├── QueriesCriteria.java     # 条件项（叶子/嵌套）
+        ├── QueriesOperatorEnum.java # 操作符枚举
+        ├── QueriesOrder.java        # 排序条件
+        ├── QueriesPage.java         # 分页参数
+        ├── QueriesPageRequest.java  # 统一查询请求体
+        ├── QueriesPredicate.java    # 条件组合
+        └── JpaQueriesExecutor.java  # JPA 执行器
 ```
 
 ## 快速开始
 
 ```xml
 <dependency>
-    <groupId>com.xinli</groupId>
-    <artifactId>xinli_queries</artifactId>
+    <groupId>com.vex</groupId>
+    <artifactId>vex-queryer-jpa</artifactId>
     <version>1.0.0-SNAPSHOT</version>
 </dependency>
+```
+
+### 从 GitHub Packages 拉取
+
+发布包托管在 GitHub Packages，需要在 `~/.m2/settings.xml` 中配置访问凭据：
+
+```xml
+<settings>
+  <servers>
+    <server>
+      <id>github</id>
+      <username>YOUR_GITHUB_USERNAME</username>
+      <password>ghp_xxx</password> <!-- PAT，至少需要 read:packages 权限 -->
+    </server>
+  </servers>
+</settings>
+```
+
+同时在 `pom.xml` 中添加仓库：
+
+```xml
+<repositories>
+  <repository>
+    <id>github</id>
+    <url>https://maven.pkg.github.com/vex-rune/queryer</url>
+  </repository>
+</repositories>
 ```
 
 ## 使用示例

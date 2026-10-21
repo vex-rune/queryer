@@ -28,6 +28,33 @@ vex-queryer/                      # 父模块
 </dependency>
 ```
 
+### 从 GitHub Packages 拉取
+
+发布包托管在 GitHub Packages，需要在 `~/.m2/settings.xml` 中配置访问凭据：
+
+```xml
+<settings>
+  <servers>
+    <server>
+      <id>github</id>
+      <username>YOUR_GITHUB_USERNAME</username>
+      <password>ghp_xxx</password> <!-- PAT，至少需要 read:packages 权限 -->
+    </server>
+  </servers>
+</settings>
+```
+
+同时在 `pom.xml` 中添加仓库：
+
+```xml
+<repositories>
+  <repository>
+    <id>github</id>
+    <url>https://maven.pkg.github.com/vex-rune/queryer</url>
+  </repository>
+</repositories>
+```
+
 ## 使用示例
 
 ```java

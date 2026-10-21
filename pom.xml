@@ -13,11 +13,61 @@
     </parent>
 
     <groupId>com.vex</groupId>
-    <artifactId>vex-queryer</artifactId>
+    <artifactId>vex-queryer-parent</artifactId>
     <version>1.0.0-SNAPSHOT</version>
-    <packaging>jar</packaging>
-    <name>vex-queryer</name>
-    <description>轻量级 JPA 动态查询库 — 支持 predicate/order/page 三件套</description>
+    <packaging>pom</packaging>
+    <name>Vex Queryer Parent</name>
+    <description>
+        vex-queryer 父模块 —— 聚合 vex-queryer-jpa(轻量级 JPA 动态查询执行器)。
+        本模块是聚合 pom,自身不发布 jar。
+    </description>
+    <url>https://github.com/vex-rune/queryer</url>
+
+    <licenses>
+        <license>
+            <name>The Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+
+    <scm>
+        <connection>scm:git:git://github.com/vex-rune/queryer.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/vex-rune/queryer.git</developerConnection>
+        <url>https://github.com/vex-rune/queryer</url>
+        <tag>HEAD</tag>
+    </scm>
+
+    <distributionManagement>
+        <!-- GitHub Packages —— vex-rune/queryer 仓库的 Maven 路径 = maven -->
+        <repository>
+            <id>github</id>
+            <name>GitHub Packages (vex-rune/queryer/maven)</name>
+            <url>https://maven.pkg.github.com/vex-rune/queryer</url>
+        </repository>
+        <snapshotRepository>
+            <id>github</id>
+            <name>GitHub Packages Snapshots (vex-rune/queryer/maven)</name>
+            <url>https://maven.pkg.github.com/vex-rune/queryer</url>
+        </snapshotRepository>
+    </distributionManagement>
+
+    <repositories>
+        <repository>
+            <id>github</id>
+            <name>GitHub Packages (vex-rune/queryer/maven)</name>
+            <url>https://maven.pkg.github.com/vex-rune/queryer</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
+
+    <modules>
+        <module>vex-queryer-jpa</module>
+    </modules>
 
     <properties>
         <java.version>21</java.version>
@@ -27,64 +77,26 @@
         <lombok.version>1.18.38</lombok.version>
     </properties>
 
-    <dependencies>
-        <!-- Spring Data JPA -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-jpa</artifactId>
-        </dependency>
-
-        <!-- Bean Validation -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-validation</artifactId>
-        </dependency>
-
-        <!-- Jackson -->
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-annotations</artifactId>
-        </dependency>
-
-        <!-- Lombok -->
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <version>${lombok.version}</version>
-            <optional>true</optional>
-        </dependency>
-
-        <!-- Test -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.vex</groupId>
+                <artifactId>vex-queryer-jpa</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <build>
         <plugins>
+            <!-- 本模块是聚合 pom,自身不打 jar -->
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
-                    <annotationProcessorPaths>
-                        <path>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                            <version>${lombok.version}</version>
-                        </path>
-                    </annotationProcessorPaths>
+                    <skip>true</skip>
                 </configuration>
             </plugin>
         </plugins>
     </build>
-
-    <distributionManagement>
-        <repository>
-            <id>xinli-tech-maven</id>
-            <name>xinli-tech-maven</name>
-            <url>https://maven.cnb.cool/xinli-tech/maven/-/packages/</url>
-        </repository>
-    </distributionManagement>
 </project>
