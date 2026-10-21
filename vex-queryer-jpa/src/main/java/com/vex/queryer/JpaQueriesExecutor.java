@@ -7,6 +7,10 @@ import com.vex.queryer.model.QueriesOrder;
 import com.vex.queryer.model.QueriesPage;
 import com.vex.queryer.model.QueriesPageRequest;
 import com.vex.queryer.model.QueriesPredicate;
+import com.vex.queryer.converter.ValueConverters;
+import com.vex.queryer.guard.FieldAndScaleGuard;
+import com.vex.queryer.guard.QueryGuard;
+import com.vex.queryer.guard.QueryGuards;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
 import jakarta.persistence.criteria.*;
@@ -281,6 +285,7 @@ public class JpaQueriesExecutor<E> {
             query.where();
             return;
         }
+        checkConditionScale(predicate);
         List<Predicate> predicates = new ArrayList<>();
         if (predicate.getAnd() != null && !predicate.getAnd().isEmpty()) {
             predicates.add(buildPredicateFromCriteria(predicate.getAnd(), true, root, builder));
@@ -328,8 +333,9 @@ public class JpaQueriesExecutor<E> {
         }
         // 校验字段是否存在于实体中,防止通过反射访问敏感字段
         String field = c.getField();
+        Path<?> path;
         try {
-            root.get(field);
+            path = root.get(field);
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("不合法的查询字段: " + field);
         }
@@ -337,22 +343,63 @@ public class JpaQueriesExecutor<E> {
         if (strategy == null) {
             throw new IllegalArgumentException("不支持的操作符: " + c.getOp());
         }
-        return strategy.apply(new PredicateContext(builder, root.get(field), c.getValue(), c.getOp()));
+        // 值类型归一后再交检验器,保证检验器看到的是目标类型的值
+        c.setValue(resolveValue(c.getValue(), path));
+        QueryGuards.get().check(c, fieldContext(path));
+        return strategy.apply(new PredicateContext(builder, path, c.getValue(), c.getOp()));
+    }
+
+    /**
+     * 字段上下文 — 从 Criteria Path 提取实体属性的 Java 类型供检验器使用。
+     * <p>
+     * 必须用 {@code path.getJavaType()} 而非 {@code instanceof SingularAttribute} 判断:
+     * Hibernate 6 下 {@code root.get(field)} 返回的是 SQM 层的 {@code SingularAttributePath},
+     * 并非 Metamodel 层的 {@code SingularAttribute} 实例,instanceof 判断恒为 false。
+     *
+     * @param path 字段路径
+     *
+     * @return 字段上下文
+     */
+    private QueryGuard.FieldContext fieldContext(Path<?> path) {
+        return new QueryGuard.FieldContext(path.getJavaType(), false);
+    }
+
+    /**
+     * 值类型归一 — JSON 反序列化残留的字符串按字段真实类型转换。
+     * <p>
+     * {@code QueriesCondition.value} 声明为 {@code Object},Jackson 无法识别 {@code Instant} / 枚举等类型,
+     * 只保留字符串;不转换直接与 {@code timestamptz} 列比较会触发 SQL 语法错
+     * ({@code operator does not exist: timestamp with time zone >= character varying})。
+     * 转换器可插拔,见 {@link com.vex.queryer.converter.ValueConverters}。
+     *
+     * @param rawValue 原始值
+     * @param path     字段路径;用于取实体属性的 Java 类型
+     *
+     * @return 目标类型的值;无匹配转换器时原样返回
+     */
+    private Object resolveValue(Object rawValue, Path<?> path) {
+        if (!(rawValue instanceof String)) {
+            return rawValue;
+        }
+        return ValueConverters.get().convert(rawValue, path.getJavaType());
     }
 
     private void applyOrdering(CriteriaQuery<E> query, Root<E> root, CriteriaBuilder builder) {
         if (orders == null || orders.isEmpty()) return;
+        FieldAndScaleGuard.checkOrderCount(orders.size());
         List<Order> orderList = orders.stream()
                 .map(o -> {
                     // 校验排序字段是否存在于实体中
+                    Path<?> path;
                     try {
-                        root.get(o.getField());
+                        path = root.get(o.getField());
                     } catch (IllegalArgumentException e) {
                         throw new IllegalArgumentException("不合法的排序字段: " + o.getField());
                     }
+                    QueryGuards.get().checkOrder(o, fieldContext(path));
                     return "DESC".equalsIgnoreCase(o.getOrder().name())
-                            ? builder.desc(root.get(o.getField()))
-                            : builder.asc(root.get(o.getField()));
+                            ? builder.desc(path)
+                            : builder.asc(path);
                 })
                 .collect(Collectors.toList());
         query.orderBy(orderList);
@@ -362,6 +409,49 @@ public class JpaQueriesExecutor<E> {
         return p == null
                 || ((p.getAnd() == null || p.getAnd().isEmpty())
                 && (p.getOr() == null || p.getOr().isEmpty()));
+    }
+
+    /**
+     * 谓词树条件总量校验 — 递归统计 condition 节点,超限直接拒绝。
+     * <p>
+     * 防止构造出巨型 WHERE 子句拖垮 DB 执行计划生成器。
+     *
+     * @param p 查询谓词
+     */
+    private void checkConditionScale(QueriesPredicate p) {
+        if (p == null) {
+            return;
+        }
+        int[] counter = {0};
+        countConditions(p, counter);
+        if (counter[0] > FieldAndScaleGuard.MAX_CONDITIONS) {
+            throw new IllegalArgumentException("查询条件数量超限: count=" + counter[0]
+                    + ", 上限=" + FieldAndScaleGuard.MAX_CONDITIONS);
+        }
+    }
+
+    private void countConditions(QueriesPredicate p, int[] counter) {
+        if (p == null) {
+            return;
+        }
+        countConditions(p.getAnd(), counter);
+        countConditions(p.getOr(), counter);
+    }
+
+    private void countConditions(List<QueriesCriteria> criteriaList, int[] counter) {
+        if (criteriaList == null) {
+            return;
+        }
+        for (QueriesCriteria c : criteriaList) {
+            if (c.getCondition() != null) {
+                counter[0]++;
+                if (counter[0] > FieldAndScaleGuard.MAX_CONDITIONS) {
+                    return;
+                }
+            } else if (c.getPredicate() != null) {
+                countConditions(c.getPredicate(), counter);
+            }
+        }
     }
 
     /**

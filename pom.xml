@@ -14,7 +14,7 @@
 
     <groupId>com.vex</groupId>
     <artifactId>vex-queryer-parent</artifactId>
-    <version>1.0.1</version>
+    <version>1.1.0</version>
     <packaging>pom</packaging>
     <name>Vex Queryer Parent</name>
     <description>
@@ -68,6 +68,7 @@
     <modules>
         <module>vex-queryer-model</module>
         <module>vex-queryer-jpa</module>
+        <module>vex-queryer-it</module>
     </modules>
 
     <properties>
