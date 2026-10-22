@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: vex-queryer-example
+  datasource:
+    url: jdbc:h2:mem:example;DB_CLOSE_DELAY=-1
+    # 不显式声明驱动,由 Spring Boot 按 URL 自动推断(H2 / 测试时覆盖为 PostgreSQL)
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false

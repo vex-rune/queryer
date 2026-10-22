@@ -7,10 +7,7 @@ import com.vex.queryer.model.QueriesOrder;
 import com.vex.queryer.model.QueriesPage;
 import com.vex.queryer.model.QueriesPageRequest;
 import com.vex.queryer.model.QueriesPredicate;
-import com.vex.queryer.converter.ValueConverters;
-import com.vex.queryer.guard.FieldAndScaleGuard;
 import com.vex.queryer.guard.QueryGuard;
-import com.vex.queryer.guard.QueryGuards;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
 import jakarta.persistence.criteria.*;
@@ -25,8 +22,11 @@ import java.util.stream.Collectors;
 
 /**
  * JPA 通用查询执行器 — 基于 Jakarta Criteria;统一封装 predicate/order/page 三件套;仅查不写。
+ *
+ * <p>{@link QueriesExecutor} 的 JPA 实现;存储相关逻辑(CriteriaBuilder / EntityManager)
+ * 全部收敛在本类,对外不暴露任何 JPA 类型;检验器与值转换器由基类构造期默认加载。
  */
-public class JpaQueriesExecutor<E> {
+public class JpaQueriesExecutor<E> extends QueriesExecutor<E> {
 
     /**
      * 操作符 → 谓词构建策略缓存;线程安全,类加载时一次性初始化。
@@ -59,12 +59,26 @@ public class JpaQueriesExecutor<E> {
     /**
      * 构造执行器
      * <p>
-     * 惰性执行,不连接 DB;落库 + 不发事件;无副作用。
+     * 使用默认限制器;惰性执行,不连接 DB;落库 + 不发事件;无副作用。
      *
      * @param entityClass   实体类型;必须为 @Entity 标注的 JPA 实体
      * @param entityManager JPA EntityManager;由 Spring 注入
      */
     public JpaQueriesExecutor(Class<E> entityClass, EntityManager entityManager) {
+        this(entityClass, entityManager, QueryLimits.DEFAULT);
+    }
+
+    /**
+     * 构造执行器 — 以自定义限制器覆盖默认
+     * <p>
+     * 惰性执行,不连接 DB;落库 + 不发事件;无副作用。
+     *
+     * @param entityClass   实体类型;必须为 @Entity 标注的 JPA 实体
+     * @param entityManager JPA EntityManager;由 Spring 注入
+     * @param limits        查询限制器;条件数/排序数/嵌套深度上限
+     */
+    public JpaQueriesExecutor(Class<E> entityClass, EntityManager entityManager, QueryLimits limits) {
+        super(limits);
         this.entityClass = entityClass;
         this.entityManager = entityManager;
     }
@@ -82,6 +96,20 @@ public class JpaQueriesExecutor<E> {
      */
     public static <E> JpaQueriesExecutor<E> of(Class<E> entityClass, EntityManager entityManager) {
         return new JpaQueriesExecutor<>(entityClass, entityManager);
+    }
+
+    /**
+     * 快速构造 — 以自定义限制器覆盖默认
+     *
+     * @param entityClass   实体类型
+     * @param entityManager JPA EntityManager
+     * @param limits        查询限制器
+     * @param <E>           实体类型
+     *
+     * @return 同语义实例
+     */
+    public static <E> JpaQueriesExecutor<E> of(Class<E> entityClass, EntityManager entityManager, QueryLimits limits) {
+        return new JpaQueriesExecutor<>(entityClass, entityManager, limits);
     }
 
     private static Function<PredicateContext, Predicate> createStrategy(QueriesOperatorEnum op) {
@@ -149,25 +177,25 @@ public class JpaQueriesExecutor<E> {
 
     private static void requireComparable(Object value, QueriesOperatorEnum op) {
         if (value == null || !(value instanceof Comparable)) {
-            throw new IllegalArgumentException(op + " 操作符需要 Comparable 类型,实际=" + (value == null ? "null" : value.getClass().getName()));
+            throw new QueryValueValidationException(op + " 操作符需要 Comparable 类型,实际=" + (value == null ? "null" : value.getClass().getName()));
         }
     }
 
     private static void requireString(Object value, QueriesOperatorEnum op) {
         if (!(value instanceof String)) {
-            throw new IllegalArgumentException(op + " 操作符需要 String 类型,实际=" + (value == null ? "null" : value.getClass().getName()));
+            throw new QueryValueValidationException(op + " 操作符需要 String 类型,实际=" + (value == null ? "null" : value.getClass().getName()));
         }
     }
 
     private static void requireNull(Object value, QueriesOperatorEnum op) {
         if (value != null) {
-            throw new IllegalArgumentException(op + " 操作符不需要传入值");
+            throw new QueryValueValidationException(op + " 操作符不需要传入值");
         }
     }
 
     private static void requireCollection(Object value, QueriesOperatorEnum op) {
         if (!(value instanceof Collection)) {
-            throw new IllegalArgumentException(op + " 操作符需要集合类型,实际=" + (value == null ? "null" : value.getClass().getName()));
+            throw new QueryValueValidationException(op + " 操作符需要集合类型,实际=" + (value == null ? "null" : value.getClass().getName()));
         }
     }
 
@@ -180,6 +208,7 @@ public class JpaQueriesExecutor<E> {
      *
      * @return 当前页数据行;可能为空列表
      */
+    @Override
     public List<E> page(QueriesPageRequest req) {
         if (req != null) {
             if (req.getPredicate() != null) this.predicate = req.getPredicate();
@@ -200,6 +229,7 @@ public class JpaQueriesExecutor<E> {
      *
      * @return 当前页数据行
      */
+    @Override
     public List<E> page(QueriesPage page) {
         CriteriaBuilder builder = entityManager.getCriteriaBuilder();
         CriteriaQuery<E> query = buildSelectQuery(builder);
@@ -219,6 +249,7 @@ public class JpaQueriesExecutor<E> {
      *
      * @return 全量数据行;可能为空列表
      */
+    @Override
     public List<E> list() {
         CriteriaBuilder builder = entityManager.getCriteriaBuilder();
         CriteriaQuery<E> query = buildSelectQuery(builder);
@@ -234,6 +265,7 @@ public class JpaQueriesExecutor<E> {
      *
      * @return 命中行数;无命中返回 0
      */
+    @Override
     public long count() {
         CriteriaBuilder builder = entityManager.getCriteriaBuilder();
         CriteriaQuery<Long> query = builder.createQuery(Long.class);
@@ -252,6 +284,7 @@ public class JpaQueriesExecutor<E> {
      *
      * @return 命中行数
      */
+    @Override
     public long count(QueriesPredicate predicate) {
         this.predicate = predicate;
         return count();
@@ -266,6 +299,7 @@ public class JpaQueriesExecutor<E> {
      *
      * @return true=至少一行
      */
+    @Override
     public boolean exists(QueriesPredicate predicate) {
         return count(predicate) > 0;
     }
@@ -281,17 +315,21 @@ public class JpaQueriesExecutor<E> {
     // ====== 构建内部 ======
 
     private void applyWhereClause(CriteriaQuery<?> query, Root<?> root, CriteriaBuilder builder) {
-        if (isEmptyPredicate(predicate)) {
-            query.where();
-            return;
-        }
-        checkConditionScale(predicate);
         List<Predicate> predicates = new ArrayList<>();
-        if (predicate.getAnd() != null && !predicate.getAnd().isEmpty()) {
-            predicates.add(buildPredicateFromCriteria(predicate.getAnd(), true, root, builder));
+        // 数据域过滤自动加入 — 无论业务是否传条件,最终查询前都生效(AND 语义)
+        List<QueriesCondition> scope = dataScopeConditions();
+        if (scope != null && !scope.isEmpty()) {
+            predicates.add(buildPredicateFromCriteria(
+                    scope.stream().map(QueriesCriteria::of).toList(), true, root, builder));
         }
-        if (predicate.getOr() != null && !predicate.getOr().isEmpty()) {
-            predicates.add(buildPredicateFromCriteria(predicate.getOr(), false, root, builder));
+        if (!isEmptyPredicate(predicate)) {
+            checkConditionScale(predicate);
+            if (predicate.getAnd() != null && !predicate.getAnd().isEmpty()) {
+                predicates.add(buildPredicateFromCriteria(predicate.getAnd(), true, root, builder));
+            }
+            if (predicate.getOr() != null && !predicate.getOr().isEmpty()) {
+                predicates.add(buildPredicateFromCriteria(predicate.getOr(), false, root, builder));
+            }
         }
         if (predicates.isEmpty()) {
             query.where();
@@ -329,7 +367,7 @@ public class JpaQueriesExecutor<E> {
 
     private Predicate buildPredicateFromCondition(QueriesCondition c, Root<?> root, CriteriaBuilder builder) {
         if (c.getField() == null || c.getField().isBlank()) {
-            throw new IllegalArgumentException("查询条件 field 不能为空");
+            throw new QueryFieldValidationException("查询条件 field 不能为空");
         }
         // 校验字段是否存在于实体中,防止通过反射访问敏感字段
         String field = c.getField();
@@ -337,15 +375,15 @@ public class JpaQueriesExecutor<E> {
         try {
             path = root.get(field);
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("不合法的查询字段: " + field);
+            throw new QueryFieldValidationException("不合法的查询字段: " + field);
         }
         Function<PredicateContext, Predicate> strategy = STRATEGY_CACHE.get(c.getOp());
         if (strategy == null) {
-            throw new IllegalArgumentException("不支持的操作符: " + c.getOp());
+            throw new QueryValidationException("不支持的操作符: " + c.getOp());
         }
         // 值类型归一后再交检验器,保证检验器看到的是目标类型的值
         c.setValue(resolveValue(c.getValue(), path));
-        QueryGuards.get().check(c, fieldContext(path));
+        guards().check(c, fieldContext(path));
         return strategy.apply(new PredicateContext(builder, path, c.getValue(), c.getOp()));
     }
 
@@ -381,12 +419,14 @@ public class JpaQueriesExecutor<E> {
         if (!(rawValue instanceof String)) {
             return rawValue;
         }
-        return ValueConverters.get().convert(rawValue, path.getJavaType());
+        return converters().convert(rawValue, path.getJavaType());
     }
 
     private void applyOrdering(CriteriaQuery<E> query, Root<E> root, CriteriaBuilder builder) {
         if (orders == null || orders.isEmpty()) return;
-        FieldAndScaleGuard.checkOrderCount(orders.size());
+        if (orders.size() > limits().maxOrders()) {
+            throw new QueryValidationException("排序字段数量超限: count=" + orders.size() + ", 上限=" + limits().maxOrders());
+        }
         List<Order> orderList = orders.stream()
                 .map(o -> {
                     // 校验排序字段是否存在于实体中
@@ -394,9 +434,9 @@ public class JpaQueriesExecutor<E> {
                     try {
                         path = root.get(o.getField());
                     } catch (IllegalArgumentException e) {
-                        throw new IllegalArgumentException("不合法的排序字段: " + o.getField());
+                        throw new QueryFieldValidationException("不合法的排序字段: " + o.getField());
                     }
-                    QueryGuards.get().checkOrder(o, fieldContext(path));
+                    guards().checkOrder(o, fieldContext(path));
                     return "DESC".equalsIgnoreCase(o.getOrder().name())
                             ? builder.desc(path)
                             : builder.asc(path);
@@ -412,9 +452,10 @@ public class JpaQueriesExecutor<E> {
     }
 
     /**
-     * 谓词树条件总量校验 — 递归统计 condition 节点,超限直接拒绝。
+     * 谓词规模校验 — 递归统计 condition 节点与嵌套深度,超限直接拒绝。
      * <p>
      * 防止构造出巨型 WHERE 子句拖垮 DB 执行计划生成器。
+     * 根谓词计为第 1 层,每嵌套一层 +1;超过限制器 maxDepth 拒绝。
      *
      * @param p 查询谓词
      */
@@ -423,33 +464,37 @@ public class JpaQueriesExecutor<E> {
             return;
         }
         int[] counter = {0};
-        countConditions(p, counter);
-        if (counter[0] > FieldAndScaleGuard.MAX_CONDITIONS) {
-            throw new IllegalArgumentException("查询条件数量超限: count=" + counter[0]
-                    + ", 上限=" + FieldAndScaleGuard.MAX_CONDITIONS);
+        countConditions(p, counter, 1);
+        if (counter[0] > limits().maxConditions()) {
+            throw new QueryValidationException("查询条件数量超限: count=" + counter[0]
+                    + ", 上限=" + limits().maxConditions());
         }
     }
 
-    private void countConditions(QueriesPredicate p, int[] counter) {
+    private void countConditions(QueriesPredicate p, int[] counter, int depth) {
         if (p == null) {
             return;
         }
-        countConditions(p.getAnd(), counter);
-        countConditions(p.getOr(), counter);
+        if (depth > limits().maxDepth()) {
+            throw new QueryValidationException("查询条件嵌套超过最大层数: depth=" + depth
+                    + ", 上限=" + limits().maxDepth());
+        }
+        countConditions(p.getAnd(), counter, depth);
+        countConditions(p.getOr(), counter, depth);
     }
 
-    private void countConditions(List<QueriesCriteria> criteriaList, int[] counter) {
+    private void countConditions(List<QueriesCriteria> criteriaList, int[] counter, int depth) {
         if (criteriaList == null) {
             return;
         }
         for (QueriesCriteria c : criteriaList) {
             if (c.getCondition() != null) {
                 counter[0]++;
-                if (counter[0] > FieldAndScaleGuard.MAX_CONDITIONS) {
+                if (counter[0] > limits().maxConditions()) {
                     return;
                 }
             } else if (c.getPredicate() != null) {
-                countConditions(c.getPredicate(), counter);
+                countConditions(c.getPredicate(), counter, depth + 1);
             }
         }
     }

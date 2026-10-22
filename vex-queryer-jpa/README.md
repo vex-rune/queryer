@@ -6,18 +6,32 @@
 
 ```
 vex-queryer/                      # 父模块
-├── vex-queryer-model/            # 查询模型：predicate/order/page 三件套 POJO（不依赖 JPA）
-│   └── src/main/java/com/vex/queryer/model/
-│       ├── QueriesCondition.java    # 单个比较条件
-│       ├── QueriesCriteria.java     # 条件项（叶子/嵌套）
-│       ├── QueriesOperatorEnum.java # 操作符枚举
-│       ├── QueriesOrder.java        # 排序条件
-│       ├── QueriesPage.java         # 分页参数
-│       ├── QueriesPageRequest.java  # 统一查询请求体
-│       └── QueriesPredicate.java    # 条件组合
+├── vex-queryer-model/            # 存储无关层：查询模型 + 通用执行器契约 + 检验/转换（不依赖 JPA）
+│   └── src/main/java/com/vex/queryer/
+│       ├── QueriesExecutor.java     # 通用查询执行器抽象基类（自动加载默认检验/转换）
+│       ├── DataScopeFilter.java     # 数据域过滤器（查库/缓存/死值均可，自动 AND 进全部查询）
+│       ├── QueryLimits.java        # 查询限制器（条件数/排序数/嵌套深度，默认嵌套 3 层，构造可覆盖）
+│       ├── QueryValidationException.java # 查询参数校验异常（兜底类型，可按 IAE 捕获）
+│       ├── QueryFieldValidationException.java # 字段维度异常（非法字段/路径穿透/排序字段非法）
+│       ├── QueryValueValidationException.java # 值维度异常（值类型/格式非法/in 集合非法）
+│       ├── model/
+│       │   ├── QueriesCondition.java    # 单个比较条件
+│       │   ├── QueriesCriteria.java     # 条件项（叶子/嵌套）
+│       │   ├── QueriesOperatorEnum.java # 操作符枚举
+│       │   ├── QueriesOrder.java        # 排序条件
+│       │   ├── QueriesPage.java         # 分页参数
+│       │   ├── QueriesPageRequest.java  # 统一查询请求体
+│       │   └── QueriesPredicate.java    # 条件组合
+│       ├── converter/              # 查询值转换器（时间/枚举/数值/布尔，可注册）
+│       └── guard/                  # 查询检验器（字段规模/操作符契约/in 归一，可注册）
+├── vex-queryer-example/          # 使用示例（Spring Boot + H2，mvn spring-boot:run 一键跑）
+│   └── src/main/java/com/vex/queryer/example/
+│       ├── demo/                   # 7 个角度示例（基础查询/转换器/检验器/数据域/限制器/异常/自定义执行器）
+│       ├── custom/                 # 自定义转换器/检验器/数据域过滤器/内存执行器
+│       └── domain/                 # 示例实体与仓储
 └── vex-queryer-jpa/              # JPA 查询执行器（依赖 model）
     └── src/main/java/com/vex/queryer/
-        └── JpaQueriesExecutor.java  # JPA 执行器
+        └── JpaQueriesExecutor.java  # JPA 执行器（QueriesExecutor 的 JPA 实现）
 ```
 
 ## 快速开始

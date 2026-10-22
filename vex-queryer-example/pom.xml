@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.vex</groupId>
+        <artifactId>vex-queryer-parent</artifactId>
+        <version>1.2.0</version>
+        <relativePath>..</relativePath>
+    </parent>
+
+    <artifactId>vex-queryer-example</artifactId>
+    <packaging>jar</packaging>
+    <name>Vex Queryer Example</name>
+    <description>
+        使用示例模块 — 从多角度演示查询执行器:基础三件套 / 值转换器 / 检验器 /
+        数据域过滤 / 限制器 / 异常细分 / 自定义存储执行器。
+        Spring Boot + H2 内存库,一键 mvn spring-boot:run 查看输出。
+    </description>
+
+    <properties>
+        <!-- Testcontainers 版本;2.x 用 docker-java 3.7,支持 Docker 29.x 的 API 1.40+,
+             1.21.x 内置的旧 docker-java 与 Docker 29 协商失败(400 BadRequest) -->
+        <testcontainers.version>2.0.5</testcontainers.version>
+        <!-- 无 Docker 环境时跳过集成测试 -->
+        <skipITs>false</skipITs>
+    </properties>
+
+    <dependencies>
+        <!-- 查询库本体 -->
+        <dependency>
+            <groupId>com.vex</groupId>
+            <artifactId>vex-queryer-jpa</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Spring Data JPA(经 jpa 模块已传递引入,显式声明以表达依赖意图) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!-- H2 内存库 — 示例自包含,无需外部数据库 -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Lombok -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- Test -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Testcontainers PostgreSQL — 演示/集成测试必须有真实 pgsql 支撑(exp 依赖 PG 15+ regexp_like) -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-postgresql</artifactId>
+            <version>${testcontainers.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
+            <version>${testcontainers.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- PostgreSQL 驱动 -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+
+            <!-- 支持 mvn spring-boot:run 直接跑示例 -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+
+            <!-- PG 集成测试固定使用 *IT 命名,由 failsafe 在 verify 阶段跑,不阻塞 mvn test -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <skipITs>${skipITs}</skipITs>
+                    <includes>
+                        <include>**/*IT.java</include>
+                    </includes>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
