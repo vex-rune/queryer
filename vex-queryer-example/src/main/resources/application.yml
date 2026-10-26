@@ -1,10 +1,19 @@
 spring:
-  application:
-    name: vex-queryer-example
   datasource:
-    url: jdbc:h2:mem:example;DB_CLOSE_DELAY=-1
-    # 不显式声明驱动,由 Spring Boot 按 URL 自动推断(H2 / 测试时覆盖为 PostgreSQL)
+    url: jdbc:postgresql://localhost:5432/queryer
+    username: xinli
+    password: Xinli_paas1!
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
     open-in-view: false
+    show-sql: true
+
+
+
+logging:
+  level:
+    root: DEBUG
